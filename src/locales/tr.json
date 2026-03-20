@@ -1,0 +1,17 @@
+{
+  "nav": {
+    "home": "Anasayfa",
+    "freelancing": "Freelance",
+    "digitalMarketing": "Dijital Pazarlama",
+    "ecommerce": "E-ticaret",
+    "digitalInvestments": "Dijital Yatırımlar",
+    "tools": "Araçlar",
+    "websiteName": "Kazan"
+  },
+  "hero": {
+    "title": "İnternetten Para Kazanmayı Öğrenin 2026",
+    "subtitle": "Dijital çağda çalışmak ve kazanmak için kapsamlı rehberiniz",
+    "cta": "Şimdi Başla"
+  },
+  "trending": "Trend Konular"
+}

@@ -1,0 +1,93 @@
+import { useState } from 'react';
+import { HeroSection } from '../components/HeroSection';
+import { Sidebar } from '../components/Sidebar';
+import { PostGrid } from '../components/PostGrid';
+import { Footer } from '../components/Footer';
+import { Header } from '../components/Header';
+
+import { posts } from '../data/posts';
+import { Eye, TrendingUp, ChevronDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+export const Home = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [visiblePostsCount, setVisiblePostsCount] = useState(12);
+
+  const trendingPosts = [...posts]
+    .sort((a, b) => (b.views || 0) - (a.views || 0))
+    .slice(0, 3);
+
+  const handleLoadMore = () => {
+    setVisiblePostsCount(prev => prev + 10);
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen">
+      <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12">
+        <HeroSection />
+        
+        {/* Trending Section */}
+        <section className="mb-20">
+          <div className="flex items-center gap-3 mb-10">
+            <div className="bg-indigo-600 p-2 rounded-xl text-white">
+              <TrendingUp size={24} />
+            </div>
+            <h2 className="text-3xl font-black text-gray-900">الأكثر قراءة</h2>
+            <div className="h-1 flex-1 mx-8 bg-gray-100 rounded-full hidden sm:block"></div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {trendingPosts.map((post, index) => (
+              <Link 
+                to={`/post/${post.id}`} 
+                key={post.id}
+                className="group relative bg-white p-6 rounded-[2rem] border border-gray-100 hover:shadow-2xl hover:shadow-indigo-100 transition-all duration-500 overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 p-8 text-8xl font-black text-gray-50 -mr-4 -mt-4 group-hover:text-indigo-50 transition-colors">
+                  0{index + 1}
+                </div>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 text-indigo-600 text-xs font-bold uppercase tracking-widest mb-4">
+                    <Eye size={14} />
+                    <span>{post.views} مشاهدة</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                    {post.title}
+                  </h3>
+                  <p className="text-gray-500 text-sm line-clamp-2">
+                    {post.summary}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-20">
+          <div className="flex items-center justify-between mb-10">
+            <h2 className="text-3xl font-black text-gray-900">أحدث المقالات</h2>
+            <div className="h-1 flex-1 mx-8 bg-gray-100 rounded-full hidden sm:block"></div>
+          </div>
+          <PostGrid limit={visiblePostsCount} />
+          
+          {visiblePostsCount < posts.length && (
+            <div className="mt-16 flex justify-center">
+              <button 
+                onClick={handleLoadMore}
+                className="group flex flex-col items-center gap-3 text-gray-500 hover:text-indigo-600 transition-all duration-300"
+              >
+                <span className="font-bold text-sm uppercase tracking-widest">عرض المزيد من المقالات</span>
+                <div className="bg-white p-4 rounded-full border border-gray-100 shadow-lg group-hover:shadow-indigo-100 group-hover:-translate-y-1 transition-all">
+                  <ChevronDown size={24} className="group-hover:animate-bounce" />
+                </div>
+              </button>
+            </div>
+          )}
+        </section>
+      </main>
+      <Footer />
+    </div>
+  );
+};

@@ -1,0 +1,17 @@
+{
+  "nav": {
+    "home": "Home",
+    "freelancing": "Freelancing",
+    "digitalMarketing": "Digital Marketing",
+    "ecommerce": "E-commerce",
+    "digitalInvestments": "Digital Investments",
+    "tools": "Tools",
+    "websiteName": "Earn"
+  },
+  "hero": {
+    "title": "Learn to Earn from the Internet 2026",
+    "subtitle": "Your comprehensive guide to working and earning in the digital age",
+    "cta": "Start Now"
+  },
+  "trending": "Trending Topics"
+}
