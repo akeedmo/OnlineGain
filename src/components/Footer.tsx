@@ -87,6 +87,7 @@ export const Footer = () => {
               <li><a href="mailto:qydalrfyd@gmail.com" className="hover:text-indigo-600 transition-colors">{language === 'ar' ? 'اتصل بنا' : 'Contact Us'}</a></li>
               <li><a href="#" className="hover:text-indigo-600 transition-colors">{language === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy'}</a></li>
               <li><a href="#" className="hover:text-indigo-600 transition-colors">{language === 'ar' ? 'شروط الاستخدام' : 'Terms of Use'}</a></li>
+              <li><Link to="/admin" className="hover:text-indigo-600 transition-colors">{language === 'ar' ? 'لوحة المشرف' : 'Admin Panel'}</Link></li>
             </ul>
           </div>
         </div>

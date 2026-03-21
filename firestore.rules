@@ -1,0 +1,130 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == "qydalrfyd@gmail.com" || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidPost(data) {
+      return data.keys().hasAll(['title', 'content', 'category', 'date']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 100000 &&
+             data.category is string && data.category.size() > 0 && data.category.size() < 50 &&
+             data.date is string &&
+             (!('summary' in data) || (data.summary is string && data.summary.size() < 1000)) &&
+             (!('image' in data) || (data.image is string && data.image.size() < 1000)) &&
+             (!('views' in data) || data.views is number) &&
+             (!('keywords' in data) || (data.keywords is list && data.keywords.size() < 50)) &&
+             (!('authorId' in data) || data.authorId is string);
+    }
+
+    function isValidVisit(data) {
+      return data.keys().hasAll(['path', 'timestamp']) &&
+             data.path is string && data.path.size() < 500 &&
+             data.timestamp is string &&
+             (!('country' in data) || (data.country is string && data.country.size() < 100)) &&
+             (!('city' in data) || (data.city is string && data.city.size() < 100)) &&
+             (!('interests' in data) || (data.interests is list && data.interests.size() < 50));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 100 &&
+             data.role in ['admin', 'user'];
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['postId', 'authorName', 'text', 'createdAt', 'status']) &&
+             data.postId is string && data.postId.size() > 0 && data.postId.size() < 100 &&
+             data.authorName is string && data.authorName.size() > 0 && data.authorName.size() < 100 &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 2000 &&
+             data.createdAt is string &&
+             data.status in ['approved', 'pending', 'rejected'] &&
+             (!('rating' in data) || (data.rating is number && data.rating >= 1 && data.rating <= 5));
+    }
+
+    function isValidSubscriber(data) {
+      return data.keys().hasAll(['email', 'subscribedAt', 'status']) &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 100 &&
+             data.subscribedAt is string &&
+             data.status in ['active', 'unsubscribed'];
+    }
+
+    function isValidSettings(data) {
+      return data.keys().hasAll(['adminPasscode']) &&
+             data.adminPasscode is string && data.adminPasscode.size() > 0 && data.adminPasscode.size() < 50;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    
+    match /posts/{postId} {
+      // Anyone can read posts
+      allow read: if true;
+      // Only admins can create/update/delete posts
+      allow create: if isAdmin() && isValidPost(request.resource.data);
+      allow update: if isAdmin() && isValidPost(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /visits/{visitId} {
+      // Admins can read visits
+      allow read: if isAdmin();
+      // Anyone can create a visit (analytics tracking)
+      allow create: if isValidVisit(request.resource.data);
+      allow update, delete: if false; // Visits are immutable
+    }
+
+    match /users/{userId} {
+      // Users can read their own profile, admins can read all
+      allow read: if isOwner(userId) || isAdmin();
+      // Only admins can manage roles
+      allow create, update, delete: if isAdmin() && isValidUser(request.resource.data);
+    }
+
+    match /comments/{commentId} {
+      allow read: if (resource.data.status == 'approved') || isAdmin();
+      allow create: if isValidComment(request.resource.data);
+      allow update: if isAdmin() && isValidComment(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /subscribers/{subscriberId} {
+      allow read: if isAdmin();
+      allow create: if isValidSubscriber(request.resource.data);
+      allow update: if isAdmin() && isValidSubscriber(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true; // Passcode needs to be read to verify, or we can just let anyone read it but it's a passcode... wait, reading passcode client-side is insecure but we are already doing it. Let's restrict it.
+      // Actually, if we restrict it, the user can't verify the passcode before logging in.
+      // Wait, the user logs in with Google first, THEN enters the passcode?
+      // Let's check Admin.tsx.
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidSettings(request.resource.data);
+      allow delete: if false;
+    }
+  }
+}

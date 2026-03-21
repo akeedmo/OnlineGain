@@ -13,7 +13,9 @@ import { Ecommerce } from './pages/Ecommerce';
 import { DigitalInvestments } from './pages/DigitalInvestments';
 import { Tools } from './pages/Tools';
 import { Contact } from './pages/Contact';
+import { Admin } from './pages/Admin';
 import ScrollToTop from './components/ScrollToTop';
+import { AnalyticsTracker } from './components/AnalyticsTracker';
 import { APIProvider } from '@vis.gl/react-google-maps';
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
@@ -23,6 +25,7 @@ export default function App() {
     <APIProvider apiKey={GOOGLE_MAPS_API_KEY} version="weekly">
       <LanguageProvider>
         <BrowserRouter>
+          <AnalyticsTracker />
           <ScrollToTop />
           <Routes>
             <Route path="/" element={<Home />} />
@@ -33,6 +36,7 @@ export default function App() {
             <Route path="/digital-investments" element={<DigitalInvestments />} />
             <Route path="/tools" element={<Tools />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/admin" element={<Admin />} />
           </Routes>
         </BrowserRouter>
       </LanguageProvider>

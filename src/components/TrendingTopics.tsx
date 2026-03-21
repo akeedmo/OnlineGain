@@ -1,8 +1,14 @@
 import { Link } from 'react-router-dom';
-import { posts } from '../data/posts';
+import { usePosts } from '../hooks/usePosts';
 import { Calendar, ArrowLeft } from 'lucide-react';
 
 export const TrendingTopics = () => {
+  const { posts, loading } = usePosts();
+
+  if (loading) {
+    return <div className="text-center py-20 text-gray-500">جاري تحميل المقالات...</div>;
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
       {posts.map(post => (

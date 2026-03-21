@@ -4,13 +4,15 @@ import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { Breadcrumbs } from '../components/Breadcrumbs';
-import { posts } from '../data/posts';
+import { usePosts } from '../hooks/usePosts';
 import { Info, ChevronDown, Share2, Eye } from 'lucide-react';
+import { Comments } from '../components/Comments';
 
 import ReactMarkdown from 'react-markdown';
 
 export const Post = () => {
   const { id } = useParams();
+  const { posts, loading } = usePosts();
   const post = posts.find(p => p.id === id);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -28,11 +30,22 @@ export const Post = () => {
     } else {
       // Fallback: Copy to clipboard
       navigator.clipboard.writeText(window.location.href);
-      alert('تم نسخ الرابط إلى الحافظة!');
+      alert('تم نسخ الرابط!');
     }
   };
 
-  if (!post) return <div>Post not found</div>;
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">جاري التحميل...</div>;
+  }
+
+  if (!post) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50" dir="rtl">
+        <h1 className="text-4xl font-black text-gray-900 mb-4">المقال غير موجود</h1>
+        <Link to="/" className="text-indigo-600 font-bold hover:underline">العودة للرئيسية</Link>
+      </div>
+    );
+  }
 
   const categoryMap: Record<string, { label: string; to: string }> = {
     'freelancing': { label: 'العمل الحر', to: '/freelancing' },
@@ -132,6 +145,9 @@ export const Post = () => {
             </button>
           </div>
         </div>
+
+        {/* Comments Section */}
+        <Comments postId={post.id} />
 
         {/* Suggested Posts Section */}
         <section className="mb-20">

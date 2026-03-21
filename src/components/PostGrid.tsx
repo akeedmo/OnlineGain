@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { posts } from '../data/posts';
+import { usePosts } from '../hooks/usePosts';
 import { Calendar, ArrowLeft, Eye } from 'lucide-react';
 
 interface PostGridProps {
@@ -8,6 +8,12 @@ interface PostGridProps {
 }
 
 export const PostGrid = ({ category, limit }: PostGridProps) => {
+  const { posts, loading } = usePosts();
+
+  if (loading) {
+    return <div className="text-center py-20 text-gray-500">جاري تحميل المقالات...</div>;
+  }
+
   const filteredPosts = category 
     ? posts.filter(post => post.category === category)
     : posts;

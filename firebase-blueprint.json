@@ -1,0 +1,105 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "A blog post or article",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "date": { "type": "string" },
+        "image": { "type": "string" },
+        "views": { "type": "number" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["title", "content", "category", "date"]
+    },
+    "Visit": {
+      "title": "Visit",
+      "description": "A page visit record for analytics",
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "country": { "type": "string" },
+        "city": { "type": "string" },
+        "interests": { "type": "array", "items": { "type": "string" } },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["path", "timestamp"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user profile, mainly for admin roles",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["email", "role"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A user comment on a post",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "text": { "type": "string" },
+        "rating": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["approved", "pending", "rejected"] }
+      },
+      "required": ["postId", "authorName", "text", "createdAt", "status"]
+    },
+    "Subscriber": {
+      "title": "Subscriber",
+      "description": "A user subscribed to the newsletter",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "subscribedAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "unsubscribed"] }
+      },
+      "required": ["email", "subscribedAt", "status"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Global application settings",
+      "type": "object",
+      "properties": {
+        "adminPasscode": { "type": "string" }
+      },
+      "required": ["adminPasscode"]
+    }
+  },
+  "firestore": {
+    "posts": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "Collection of all posts"
+    },
+    "visits": {
+      "schema": { "$ref": "#/entities/Visit" },
+      "description": "Collection of page visits"
+    },
+    "users": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Collection of user roles"
+    },
+    "comments": {
+      "schema": { "$ref": "#/entities/Comment" },
+      "description": "Collection of all comments"
+    },
+    "subscribers": {
+      "schema": { "$ref": "#/entities/Subscriber" },
+      "description": "Collection of all newsletter subscribers"
+    },
+    "settings": {
+      "schema": { "$ref": "#/entities/Settings" },
+      "description": "Collection of global application settings"
+    }
+  }
+}
