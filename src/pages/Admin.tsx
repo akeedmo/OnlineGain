@@ -40,6 +40,7 @@ export function Admin() {
   const [googleSiteVerification, setGoogleSiteVerification] = useState('');
   const [adsenseClientId, setAdsenseClientId] = useState('');
   const [googleAnalyticsId, setGoogleAnalyticsId] = useState('');
+  const [sitemapContent, setSitemapContent] = useState('');
   const [isSavingSiteSettings, setIsSavingSiteSettings] = useState(false);
   
   // Login State
@@ -73,6 +74,7 @@ export function Admin() {
           setGoogleSiteVerification(data.googleSiteVerification || '');
           setAdsenseClientId(data.adsenseClientId || '');
           setGoogleAnalyticsId(data.googleAnalyticsId || '');
+          setSitemapContent(data.sitemapContent || '');
         }
       } catch (error) {
         console.error("Error fetching settings:", error);
@@ -86,6 +88,9 @@ export function Admin() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        console.log("Logged in user email:", currentUser.email); // إضافة هذا السطر للتحقق
+      }
       const isUserAdmin = currentUser && (currentUser.email === ADMIN_EMAIL || adminEmails.includes(currentUser.email));
       if (isUserAdmin && isPasscodeValid) {
         fetchAnalytics();
@@ -256,7 +261,8 @@ export function Admin() {
       await setDoc(doc(db, 'settings', 'site'), {
         googleSiteVerification,
         adsenseClientId,
-        googleAnalyticsId
+        googleAnalyticsId,
+        sitemapContent
       }, { merge: true });
       setSettingsMessage('تم حفظ إعدادات الموقع بنجاح!');
     } catch (error) {
@@ -1085,6 +1091,21 @@ export function Admin() {
                         dir="ltr"
                       />
                       <p className="mt-1 text-xs text-gray-500">أدخل معرف الناشر الخاص بك لتفعيل الإعلانات على الموقع</p>
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        خريطة الموقع (sitemap.xml)
+                      </label>
+                      <textarea
+                        value={sitemapContent}
+                        onChange={(e) => setSitemapContent(e.target.value)}
+                        className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        rows={10}
+                        placeholder="أدخل محتوى ملف sitemap.xml هنا"
+                        dir="ltr"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">سيتم عرض هذا المحتوى عند زيارة /sitemap.xml</p>
                     </div>
                   </div>
 

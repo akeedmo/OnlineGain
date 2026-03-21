@@ -54,6 +54,16 @@ export function SiteIntegrations() {
               document.head.appendChild(inlineScript);
             }
           }
+
+          // Sitemap link
+          let sitemapLink = document.querySelector('link[rel="sitemap"]');
+          if (!sitemapLink) {
+            sitemapLink = document.createElement('link');
+            sitemapLink.setAttribute('rel', 'sitemap');
+            sitemapLink.setAttribute('type', 'application/xml');
+            sitemapLink.setAttribute('href', '/sitemap.xml');
+            document.head.appendChild(sitemapLink);
+          }
         }
       } catch (error) {
         console.error("Error loading site integrations:", error);
