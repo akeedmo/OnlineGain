@@ -16,6 +16,7 @@ import { Contact } from './pages/Contact';
 import { Admin } from './pages/Admin';
 import ScrollToTop from './components/ScrollToTop';
 import { AnalyticsTracker } from './components/AnalyticsTracker';
+import { SiteIntegrations } from './components/SiteIntegrations';
 import { APIProvider } from '@vis.gl/react-google-maps';
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
@@ -24,6 +25,7 @@ export default function App() {
   return (
     <APIProvider apiKey={GOOGLE_MAPS_API_KEY} version="weekly">
       <LanguageProvider>
+        <SiteIntegrations />
         <BrowserRouter>
           <AnalyticsTracker />
           <ScrollToTop />

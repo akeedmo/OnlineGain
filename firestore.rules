@@ -11,8 +11,12 @@ service cloud.firestore {
     }
     
     function isAdmin() {
+      let isListedAdmin = exists(/databases/$(database)/documents/settings/admin) && 
+                          ('adminEmails' in get(/databases/$(database)/documents/settings/admin).data) && 
+                          (request.auth.token.email in get(/databases/$(database)/documents/settings/admin).data.adminEmails);
       return isAuthenticated() && (
         request.auth.token.email == "qydalrfyd@gmail.com" || 
+        isListedAdmin ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
@@ -72,7 +76,14 @@ service cloud.firestore {
 
     function isValidSettings(data) {
       return data.keys().hasAll(['adminPasscode']) &&
-             data.adminPasscode is string && data.adminPasscode.size() > 0 && data.adminPasscode.size() < 50;
+             data.adminPasscode is string && data.adminPasscode.size() > 0 && data.adminPasscode.size() < 50 &&
+             (!('adminEmails' in data) || (data.adminEmails is list && data.adminEmails.size() < 20));
+    }
+
+    function isValidSiteSettings(data) {
+      return (!('googleSiteVerification' in data) || data.googleSiteVerification is string) &&
+             (!('adsenseClientId' in data) || data.adsenseClientId is string) &&
+             (!('googleAnalyticsId' in data) || data.googleAnalyticsId is string);
     }
 
     // ===============================================================
@@ -118,12 +129,11 @@ service cloud.firestore {
     }
 
     match /settings/{settingId} {
-      allow read: if true; // Passcode needs to be read to verify, or we can just let anyone read it but it's a passcode... wait, reading passcode client-side is insecure but we are already doing it. Let's restrict it.
-      // Actually, if we restrict it, the user can't verify the passcode before logging in.
-      // Wait, the user logs in with Google first, THEN enters the passcode?
-      // Let's check Admin.tsx.
       allow read: if true;
-      allow create, update: if isAdmin() && isValidSettings(request.resource.data);
+      allow create, update: if isAdmin() && (
+        (settingId == 'admin' && isValidSettings(request.resource.data)) ||
+        (settingId == 'site' && isValidSiteSettings(request.resource.data))
+      );
       allow delete: if false;
     }
   }

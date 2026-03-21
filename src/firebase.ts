@@ -17,6 +17,9 @@ export const loginWithGoogle = async () => {
       // User closed the popup, ignore the error
       return null;
     }
+    if (error.code === 'auth/popup-blocked') {
+      throw new Error('تم حظر النافذة المنبثقة. يرجى السماح بالنوافذ المنبثقة (Popups) لهذا الموقع.');
+    }
     console.error("Error signing in with Google", error);
     throw error;
   }

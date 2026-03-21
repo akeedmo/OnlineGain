@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, query, orderBy, setDoc, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db, auth, loginWithGoogle, logout } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { BarChart, Activity, Globe, Users, FileText, PlusCircle, LogOut, Key, MessageSquare, Mail, Settings, Database } from 'lucide-react';
+import { BarChart, Activity, Globe, Users, FileText, PlusCircle, LogOut, Key, MessageSquare, Mail, Settings, Database, Search, DollarSign } from 'lucide-react';
 import { posts as staticPosts } from '../data/posts';
 
 export function Admin() {
@@ -33,6 +33,21 @@ export function Admin() {
   const [newPasscode, setNewPasscode] = useState('');
   const [settingsMessage, setSettingsMessage] = useState('');
   const [isMigrating, setIsMigrating] = useState(false);
+  const [adminEmails, setAdminEmails] = useState<string[]>([]);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  
+  // Site Settings State
+  const [googleSiteVerification, setGoogleSiteVerification] = useState('');
+  const [adsenseClientId, setAdsenseClientId] = useState('');
+  const [googleAnalyticsId, setGoogleAnalyticsId] = useState('');
+  const [isSavingSiteSettings, setIsSavingSiteSettings] = useState(false);
+  
+  // Login State
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginError, setLoginError] = useState('');
+
+  // Admin Posts State
+  const [adminPosts, setAdminPosts] = useState<any[]>([]);
 
   const ADMIN_EMAIL = 'qydalrfyd@gmail.com';
   const [secretPasscode, setSecretPasscode] = useState('admin123'); // Default, will be fetched
@@ -42,8 +57,22 @@ export function Admin() {
     const fetchSettings = async () => {
       try {
         const settingsDoc = await getDoc(doc(db, 'settings', 'admin'));
-        if (settingsDoc.exists() && settingsDoc.data().adminPasscode) {
-          setSecretPasscode(settingsDoc.data().adminPasscode);
+        if (settingsDoc.exists()) {
+          const data = settingsDoc.data();
+          if (data.adminPasscode) {
+            setSecretPasscode(data.adminPasscode);
+          }
+          if (data.adminEmails) {
+            setAdminEmails(data.adminEmails);
+          }
+        }
+
+        const siteSettingsDoc = await getDoc(doc(db, 'settings', 'site'));
+        if (siteSettingsDoc.exists()) {
+          const data = siteSettingsDoc.data();
+          setGoogleSiteVerification(data.googleSiteVerification || '');
+          setAdsenseClientId(data.adsenseClientId || '');
+          setGoogleAnalyticsId(data.googleAnalyticsId || '');
         }
       } catch (error) {
         console.error("Error fetching settings:", error);
@@ -52,29 +81,48 @@ export function Admin() {
     fetchSettings();
   }, []);
 
+  const isAdminUser = user && (user.email === ADMIN_EMAIL || adminEmails.includes(user.email));
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser?.email === ADMIN_EMAIL && isPasscodeValid) {
+      const isUserAdmin = currentUser && (currentUser.email === ADMIN_EMAIL || adminEmails.includes(currentUser.email));
+      if (isUserAdmin && isPasscodeValid) {
         fetchAnalytics();
         fetchComments();
         fetchSubscribers();
+        fetchAdminPosts();
       }
     });
     return () => unsubscribe();
-  }, [isPasscodeValid]);
+  }, [isPasscodeValid, adminEmails]);
 
   const handlePasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (passcode === secretPasscode) {
       setIsPasscodeValid(true);
-      if (user?.email === ADMIN_EMAIL) {
+      if (isAdminUser) {
         fetchAnalytics();
         fetchComments();
         fetchSubscribers();
+        fetchAdminPosts();
       }
     } else {
       alert('الرمز غير صحيح');
+    }
+  };
+
+  const fetchAdminPosts = async () => {
+    try {
+      const q = query(collection(db, 'posts'), orderBy('date', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const postsData: any[] = [];
+      querySnapshot.forEach((doc) => {
+        postsData.push({ id: doc.id, ...doc.data() });
+      });
+      setAdminPosts(postsData);
+    } catch (error) {
+      console.error("Error fetching admin posts:", error);
     }
   };
 
@@ -138,6 +186,17 @@ export function Admin() {
     }
   };
 
+  const handleDeleteAdminPost = async (postId: string) => {
+    if (!window.confirm("هل أنت متأكد من حذف هذا المنشور؟")) return;
+    try {
+      await deleteDoc(doc(db, 'posts', postId));
+      fetchAdminPosts();
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      alert("حدث خطأ أثناء حذف المنشور");
+    }
+  };
+
   const handleUpdatePasscode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPasscode || newPasscode.length < 6) {
@@ -145,13 +204,66 @@ export function Admin() {
       return;
     }
     try {
-      await setDoc(doc(db, 'settings', 'admin'), { adminPasscode: newPasscode });
+      await setDoc(doc(db, 'settings', 'admin'), { adminPasscode: newPasscode }, { merge: true });
       setSecretPasscode(newPasscode);
       setSettingsMessage('تم تحديث رمز الدخول بنجاح!');
       setNewPasscode('');
     } catch (error) {
       console.error("Error updating passcode:", error);
       setSettingsMessage('حدث خطأ أثناء تحديث الرمز');
+    }
+  };
+
+  const handleAddAdminEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminEmail || !newAdminEmail.includes('@')) {
+      setSettingsMessage('يرجى إدخال بريد إلكتروني صحيح');
+      return;
+    }
+    if (adminEmails.includes(newAdminEmail) || newAdminEmail === ADMIN_EMAIL) {
+      setSettingsMessage('هذا البريد مضاف مسبقاً');
+      return;
+    }
+    try {
+      const updatedEmails = [...adminEmails, newAdminEmail];
+      await setDoc(doc(db, 'settings', 'admin'), { adminEmails: updatedEmails }, { merge: true });
+      setAdminEmails(updatedEmails);
+      setSettingsMessage('تم إضافة المشرف بنجاح!');
+      setNewAdminEmail('');
+    } catch (error) {
+      console.error("Error adding admin:", error);
+      setSettingsMessage('حدث خطأ أثناء إضافة المشرف');
+    }
+  };
+
+  const handleRemoveAdminEmail = async (emailToRemove: string) => {
+    if (!window.confirm(`هل أنت متأكد من إزالة ${emailToRemove} من قائمة المشرفين؟`)) return;
+    try {
+      const updatedEmails = adminEmails.filter(email => email !== emailToRemove);
+      await setDoc(doc(db, 'settings', 'admin'), { adminEmails: updatedEmails }, { merge: true });
+      setAdminEmails(updatedEmails);
+      setSettingsMessage('تم إزالة المشرف بنجاح!');
+    } catch (error) {
+      console.error("Error removing admin:", error);
+      setSettingsMessage('حدث خطأ أثناء إزالة المشرف');
+    }
+  };
+
+  const handleSaveSiteSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSiteSettings(true);
+    try {
+      await setDoc(doc(db, 'settings', 'site'), {
+        googleSiteVerification,
+        adsenseClientId,
+        googleAnalyticsId
+      }, { merge: true });
+      setSettingsMessage('تم حفظ إعدادات الموقع بنجاح!');
+    } catch (error) {
+      console.error("Error saving site settings:", error);
+      setSettingsMessage('حدث خطأ أثناء حفظ إعدادات الموقع');
+    } finally {
+      setIsSavingSiteSettings(false);
     }
   };
 
@@ -255,6 +367,7 @@ export function Admin() {
       setContent('');
       setImage('');
       setKeywords('');
+      fetchAdminPosts();
     } catch (error) {
       console.error("Error adding post:", error);
       setMessage('حدث خطأ أثناء إضافة المنشور.');
@@ -262,6 +375,88 @@ export function Admin() {
       setIsSubmitting(false);
     }
   };
+
+  const handleLogin = async () => {
+    try {
+      setIsLoggingIn(true);
+      setLoginError('');
+      const loggedInUser = await loginWithGoogle();
+      if (!loggedInUser) {
+        setLoginError('تم إلغاء تسجيل الدخول. يرجى التأكد من السماح بالنوافذ المنبثقة (Popups) في متصفحك والمحاولة مرة أخرى.');
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
+      setLoginError(error.message || 'حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4" dir="rtl">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+          <Users className="w-16 h-16 text-indigo-600 mx-auto mb-6" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">تسجيل الدخول للمشرف</h1>
+          <p className="text-gray-500 mb-6">يجب تسجيل الدخول بحساب المشرف المعتمد</p>
+          
+          {loginError && (
+            <div className="bg-red-50 text-red-700 p-4 rounded-xl mb-6 text-sm">
+              {loginError}
+            </div>
+          )}
+
+          <button
+            onClick={handleLogin}
+            disabled={isLoggingIn}
+            className="w-full bg-white border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isLoggingIn ? (
+              <span>جاري تسجيل الدخول...</span>
+            ) : (
+              <>
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
+                تسجيل الدخول باستخدام Google
+              </>
+            )}
+          </button>
+          <div className="mt-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+            <p className="text-sm text-indigo-800 mb-3">
+              ملاحظة: إذا لم يستجب زر تسجيل الدخول (بسبب حظر النوافذ المنبثقة داخل المعاينة)، يرجى الضغط على الرابط التالي لفتح لوحة التحكم في نافذة مستقلة:
+            </p>
+            <a
+              href={window.location.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center w-full py-2 px-4 bg-indigo-100 text-indigo-700 rounded-lg font-medium hover:bg-indigo-200 transition-colors"
+            >
+              🚀 فتح لوحة التحكم في نافذة جديدة
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdminUser) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4" dir="rtl">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <LogOut className="w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">غير مصرح لك</h1>
+          <p className="text-gray-500 mb-6">هذا الحساب ليس لديه صلاحيات المشرف.</p>
+          <button
+            onClick={logout}
+            className="w-full bg-gray-900 text-white py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors"
+          >
+            تسجيل الخروج
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!isPasscodeValid) {
     return (
@@ -286,45 +481,6 @@ export function Admin() {
               دخول
             </button>
           </form>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4" dir="rtl">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
-          <Users className="w-16 h-16 text-indigo-600 mx-auto mb-6" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">تسجيل الدخول للمشرف</h1>
-          <p className="text-gray-500 mb-6">يجب تسجيل الدخول بحساب المشرف المعتمد</p>
-          <button
-            onClick={loginWithGoogle}
-            className="w-full bg-white border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-          >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6" />
-            تسجيل الدخول باستخدام Google
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (user.email !== ADMIN_EMAIL) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4" dir="rtl">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <LogOut className="w-8 h-8" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">غير مصرح لك</h1>
-          <p className="text-gray-500 mb-6">هذا الحساب ليس لديه صلاحيات المشرف.</p>
-          <button
-            onClick={logout}
-            className="w-full bg-gray-900 text-white py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors"
-          >
-            تسجيل الخروج
-          </button>
         </div>
       </div>
     );
@@ -501,6 +657,54 @@ export function Admin() {
                 {isSubmitting ? 'جاري النشر...' : 'نشر المقال الآن'}
               </button>
             </form>
+
+            {/* Admin Posts List */}
+            <div className="mt-16 border-t border-gray-100 pt-12">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <FileText className="w-6 h-6 text-indigo-600" />
+                المنشورات السابقة
+              </h2>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-right">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-gray-500 text-sm">
+                      <th className="pb-4 font-medium">العنوان</th>
+                      <th className="pb-4 font-medium">القسم</th>
+                      <th className="pb-4 font-medium">المشاهدات</th>
+                      <th className="pb-4 font-medium">التاريخ</th>
+                      <th className="pb-4 font-medium">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {adminPosts.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-gray-500">لا توجد منشورات حتى الآن</td>
+                      </tr>
+                    ) : (
+                      adminPosts.map((post) => (
+                        <tr key={post.id} className="text-sm">
+                          <td className="py-4 font-medium text-gray-900 max-w-[200px] truncate">{post.title}</td>
+                          <td className="py-4 text-gray-600">{post.category}</td>
+                          <td className="py-4 text-gray-600">{post.views || 0}</td>
+                          <td className="py-4 text-gray-500" dir="ltr">
+                            {post.date}
+                          </td>
+                          <td className="py-4">
+                            <button
+                              onClick={() => handleDeleteAdminPost(post.id)}
+                              className="text-red-600 hover:text-red-800 font-medium text-xs bg-red-50 px-3 py-1 rounded"
+                            >
+                              حذف
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
@@ -779,8 +983,123 @@ export function Admin() {
                 </form>
               </div>
 
-              {/* Migrate Posts */}
+              {/* Manage Admins */}
               <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-600" />
+                  إدارة المشرفين
+                </h3>
+                <form onSubmit={handleAddAdminEmail} className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">إضافة بريد مشرف جديد</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        required
+                        value={newAdminEmail}
+                        onChange={(e) => setNewAdminEmail(e.target.value)}
+                        className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="example@gmail.com"
+                        dir="ltr"
+                      />
+                      <button
+                        type="submit"
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition-colors"
+                      >
+                        إضافة
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700">المشرفون الحاليون:</h4>
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50">
+                      <span className="text-sm text-gray-900 font-medium" dir="ltr">{ADMIN_EMAIL}</span>
+                      <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2 py-1 rounded">المالك</span>
+                    </div>
+                    {adminEmails.map((email) => (
+                      <div key={email} className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0">
+                        <span className="text-sm text-gray-700" dir="ltr">{email}</span>
+                        <button
+                          onClick={() => handleRemoveAdminEmail(email)}
+                          className="text-red-600 hover:text-red-800 text-xs font-medium bg-red-50 px-2 py-1 rounded"
+                        >
+                          إزالة
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* SEO & Monetization */}
+              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 md:col-span-2">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <Search className="w-5 h-5 text-indigo-600" />
+                  تحسين محركات البحث وتحقيق الدخل (SEO & Monetization)
+                </h3>
+                <form onSubmit={handleSaveSiteSettings} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        إثبات ملكية Google (Search Console)
+                      </label>
+                      <input
+                        type="text"
+                        value={googleSiteVerification}
+                        onChange={(e) => setGoogleSiteVerification(e.target.value)}
+                        className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="مثال: XyZ123..."
+                        dir="ltr"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">ضع الكود الخاص بـ google-site-verification هنا</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        معرف Google Analytics
+                      </label>
+                      <input
+                        type="text"
+                        value={googleAnalyticsId}
+                        onChange={(e) => setGoogleAnalyticsId(e.target.value)}
+                        className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="مثال: G-XXXXXXXXXX"
+                        dir="ltr"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-green-600" />
+                        معرف عميل Google AdSense
+                      </label>
+                      <input
+                        type="text"
+                        value={adsenseClientId}
+                        onChange={(e) => setAdsenseClientId(e.target.value)}
+                        className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="مثال: ca-pub-1234567890123456"
+                        dir="ltr"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">أدخل معرف الناشر الخاص بك لتفعيل الإعلانات على الموقع</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSavingSiteSettings}
+                    className="w-full md:w-auto px-8 bg-indigo-600 text-white py-2 rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:opacity-70"
+                  >
+                    {isSavingSiteSettings ? 'جاري الحفظ...' : 'حفظ إعدادات الموقع'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Migrate Posts */}
+              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 md:col-span-2">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <Database className="w-5 h-5 text-indigo-600" />
                   نقل المقالات القديمة
