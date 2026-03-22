@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, query, orderBy, setDoc, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, setDoc, doc, updateDoc, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth, loginWithGoogle, logout } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { BarChart, Activity, Globe, Users, FileText, PlusCircle, LogOut, Key, MessageSquare, Mail, Settings, Database, Search, DollarSign, Bold, Heading2, Link as LinkIcon, List, Eye as EyeIcon } from 'lucide-react';
@@ -102,10 +102,101 @@ export function Admin() {
 
   useEffect(() => {
     if (user && isAdminUser && isPasscodeValid) {
-      fetchAnalytics();
-      fetchComments();
-      fetchSubscribers();
-      fetchAdminPosts();
+      // Real-time listeners
+      const qVisits = query(collection(db, 'visits'), orderBy('timestamp', 'desc'));
+      const unsubVisits = onSnapshot(qVisits, (snapshot) => {
+        const visitsData: any[] = [];
+        const countryCount: Record<string, number> = {};
+        const interestCount: Record<string, number> = {};
+        
+        const now = new Date();
+        const daily = new Date(now); daily.setHours(0, 0, 0, 0);
+        const weekly = new Date(now); weekly.setDate(now.getDate() - 7);
+        const monthly = new Date(now); monthly.setMonth(now.getMonth() - 1);
+        const yearly = new Date(now); yearly.setFullYear(now.getFullYear() - 1);
+
+        let dVisits = 0, wVisits = 0, mVisits = 0, yVisits = 0;
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          visitsData.push(data);
+          
+          // Handle both ISO string and Firestore Timestamp
+          const ts = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+          
+          if (!isNaN(ts.getTime())) {
+            if (ts >= daily) dVisits++;
+            if (ts >= weekly) wVisits++;
+            if (ts >= monthly) mVisits++;
+            if (ts >= yearly) yVisits++;
+          }
+          
+          if (data.country) {
+            countryCount[data.country] = (countryCount[data.country] || 0) + 1;
+          }
+          
+          if (data.interests && Array.isArray(data.interests)) {
+            data.interests.forEach((interest: string) => {
+              interestCount[interest] = (interestCount[interest] || 0) + 1;
+            });
+          }
+        });
+
+        const topCountries = Object.entries(countryCount)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => ({ name, count }));
+
+        const topInterests = Object.entries(interestCount)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => ({ name, count }));
+
+        setVisits(visitsData);
+        setStats({
+          totalVisits: visitsData.length,
+          daily: dVisits,
+          weekly: wVisits,
+          monthly: mVisits,
+          yearly: yVisits,
+          topCountries,
+          topInterests
+        });
+      });
+
+      const qComments = query(collection(db, 'comments'), orderBy('createdAt', 'desc'));
+      const unsubComments = onSnapshot(qComments, (snapshot) => {
+        const commentsData: any[] = [];
+        snapshot.forEach((doc) => {
+          commentsData.push({ id: doc.id, ...doc.data() });
+        });
+        setComments(commentsData);
+      });
+
+      const qSubscribers = query(collection(db, 'subscribers'), orderBy('subscribedAt', 'desc'));
+      const unsubSubscribers = onSnapshot(qSubscribers, (snapshot) => {
+        const subscribersData: any[] = [];
+        snapshot.forEach((doc) => {
+          subscribersData.push({ id: doc.id, ...doc.data() });
+        });
+        setSubscribers(subscribersData);
+      });
+
+      const qPosts = query(collection(db, 'posts'), orderBy('date', 'desc'));
+      const unsubPosts = onSnapshot(qPosts, (snapshot) => {
+        const firestorePosts: any[] = [];
+        snapshot.forEach((doc) => {
+          firestorePosts.push({ id: doc.id, ...doc.data() });
+        });
+        setAdminPosts(firestorePosts);
+      });
+
+      return () => {
+        unsubVisits();
+        unsubComments();
+        unsubSubscribers();
+        unsubPosts();
+      };
     }
   }, [user, isAdminUser, isPasscodeValid]);
 
@@ -124,64 +215,14 @@ export function Admin() {
     e.preventDefault();
     if (passcode === secretPasscode) {
       setIsPasscodeValid(true);
-      if (isAdminUser) {
-        fetchAnalytics();
-        fetchComments();
-        fetchSubscribers();
-        fetchAdminPosts();
-      }
     } else {
       setLoginError('الرمز غير صحيح');
-    }
-  };
-
-  const fetchAdminPosts = async () => {
-    try {
-      const q = query(collection(db, 'posts'), orderBy('date', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const firestorePosts: any[] = [];
-      querySnapshot.forEach((doc) => {
-        firestorePosts.push({ id: doc.id, ...doc.data() });
-      });
-
-      setAdminPosts(firestorePosts);
-    } catch (error) {
-      console.error("Error fetching admin posts:", error);
-    }
-  };
-
-  const fetchComments = async () => {
-    try {
-      const q = query(collection(db, 'comments'), orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const commentsData: any[] = [];
-      querySnapshot.forEach((doc) => {
-        commentsData.push({ id: doc.id, ...doc.data() });
-      });
-      setComments(commentsData);
-    } catch (error) {
-      console.error("Error fetching comments:", error);
-    }
-  };
-
-  const fetchSubscribers = async () => {
-    try {
-      const q = query(collection(db, 'subscribers'), orderBy('subscribedAt', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const subscribersData: any[] = [];
-      querySnapshot.forEach((doc) => {
-        subscribersData.push({ id: doc.id, ...doc.data() });
-      });
-      setSubscribers(subscribersData);
-    } catch (error) {
-      console.error("Error fetching subscribers:", error);
     }
   };
 
   const handleUpdateCommentStatus = async (commentId: string, status: string) => {
     try {
       await updateDoc(doc(db, 'comments', commentId), { status });
-      fetchComments();
     } catch (error) {
       console.error("Error updating comment:", error);
       setSettingsMessage("حدث خطأ أثناء تحديث حالة التعليق");
@@ -189,9 +230,9 @@ export function Admin() {
   };
 
   const handleDeleteComment = async (commentId: string) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا التعليق؟')) return;
     try {
       await deleteDoc(doc(db, 'comments', commentId));
-      fetchComments();
     } catch (error) {
       console.error("Error deleting comment:", error);
       setSettingsMessage("حدث خطأ أثناء حذف التعليق");
@@ -199,9 +240,9 @@ export function Admin() {
   };
 
   const handleDeleteSubscriber = async (subscriberId: string) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا المشترك؟')) return;
     try {
       await deleteDoc(doc(db, 'subscribers', subscriberId));
-      fetchSubscribers();
     } catch (error) {
       console.error("Error deleting subscriber:", error);
       setSettingsMessage("حدث خطأ أثناء حذف المشترك");
@@ -209,9 +250,9 @@ export function Admin() {
   };
 
   const handleDeleteAdminPost = async (postId: string) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا المنشور؟')) return;
     try {
       await deleteDoc(doc(db, 'posts', postId));
-      fetchAdminPosts();
     } catch (error) {
       console.error("Error deleting post:", error);
       setSettingsMessage("حدث خطأ أثناء حذف المنشور");
@@ -288,68 +329,6 @@ export function Admin() {
     }
   };
 
-  const fetchAnalytics = async () => {
-    try {
-      const q = query(collection(db, 'visits'), orderBy('timestamp', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const visitsData: any[] = [];
-      const countryCount: Record<string, number> = {};
-      const interestCount: Record<string, number> = {};
-      
-      const now = new Date();
-      const daily = new Date(now); daily.setHours(0, 0, 0, 0);
-      const weekly = new Date(now); weekly.setDate(now.getDate() - 7);
-      const monthly = new Date(now); monthly.setMonth(now.getMonth() - 1);
-      const yearly = new Date(now); yearly.setFullYear(now.getFullYear() - 1);
-
-      let dVisits = 0, wVisits = 0, mVisits = 0, yVisits = 0;
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        visitsData.push(data);
-        const ts = new Date(data.timestamp);
-
-        if (ts >= daily) dVisits++;
-        if (ts >= weekly) wVisits++;
-        if (ts >= monthly) mVisits++;
-        if (ts >= yearly) yVisits++;
-        
-        if (data.country) {
-          countryCount[data.country] = (countryCount[data.country] || 0) + 1;
-        }
-        
-        if (data.interests && Array.isArray(data.interests)) {
-          data.interests.forEach((interest: string) => {
-            interestCount[interest] = (interestCount[interest] || 0) + 1;
-          });
-        }
-      });
-
-      const topCountries = Object.entries(countryCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, count]) => ({ name, count }));
-
-      const topInterests = Object.entries(interestCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, count]) => ({ name, count }));
-
-      setVisits(visitsData);
-      setStats({
-        totalVisits: visitsData.length,
-        daily: dVisits,
-        weekly: wVisits,
-        monthly: mVisits,
-        yearly: yVisits,
-        topCountries,
-        topInterests
-      });
-    } catch (error) {
-      console.error("Error fetching analytics:", error);
-    }
-  };
-
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
@@ -408,7 +387,6 @@ export function Admin() {
       setContent('');
       setImage('');
       setKeywords('');
-      fetchAdminPosts();
     } catch (error) {
       console.error("Error adding post:", error);
       setMessage('حدث خطأ أثناء إضافة المنشور.');
@@ -723,17 +701,6 @@ export function Admin() {
                     >
                       <List size={18} />
                     </button>
-                    <div className="w-px h-4 bg-gray-200 mx-1"></div>
-                    <button
-                      type="button"
-                      onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                        isPreviewOpen ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      <EyeIcon size={14} />
-                      {isPreviewOpen ? 'إغلاق المعاينة' : 'معاينة المحتوى'}
-                    </button>
                   </div>
                 </div>
                 
@@ -753,6 +720,19 @@ export function Admin() {
                       <ReactMarkdown>{content || '*لا يوجد محتوى للمعاينة حالياً*'}</ReactMarkdown>
                     </div>
                   )}
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewOpen(!isPreviewOpen)}
+                    className={`flex items-center gap-2 px-6 py-2 rounded-xl font-bold transition-all shadow-sm ${
+                      isPreviewOpen ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <EyeIcon size={20} />
+                    {isPreviewOpen ? 'إغلاق المعاينة' : 'معاينة محتوى المقال'}
+                  </button>
                 </div>
               </div>
 
@@ -1127,25 +1107,25 @@ export function Admin() {
                   إدارة المشرفين
                 </h3>
                 <form onSubmit={handleAddAdminEmail} className="space-y-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">إضافة بريد مشرف جديد</label>
-                    <div className="flex gap-2">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">إضافة بريد مشرف جديد</label>
                       <input
                         type="email"
                         required
                         value={newAdminEmail}
                         onChange={(e) => setNewAdminEmail(e.target.value)}
-                        className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="example@gmail.com"
                         dir="ltr"
                       />
-                      <button
-                        type="submit"
-                        className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition-colors"
-                      >
-                        إضافة
-                      </button>
                     </div>
+                    <button
+                      type="submit"
+                      className="w-full bg-indigo-600 text-white px-4 py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+                    >
+                      إضافة مشرف جديد
+                    </button>
                   </div>
                 </form>
 

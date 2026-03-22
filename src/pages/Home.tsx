@@ -34,15 +34,19 @@ export const Home = () => {
       <Helmet>
         <title>اربح - منصتك الشاملة للربح من الإنترنت والعمل الحر</title>
         <meta name="description" content="اربح هي منصتك الشاملة لتعلم طرق الربح من الإنترنت، العمل الحر، التسويق بالعمولة، والتجارة الإلكترونية. ابدأ رحلتك نحو الاستقلال المالي اليوم." />
-        <meta property="og:title" content="اربح - منصتك للربح من الإنترنت" />
+        <meta property="og:site_name" content="اربح" />
+        <meta property="og:title" content="اربح - منصتك للربح من الإنترنت والعمل الحر" />
         <meta property="og:description" content="تعلم طرق الربح من الإنترنت، العمل الحر، والتجارة الإلكترونية. ابدأ رحلتك نحو الاستقلال المالي اليوم." />
-        <meta property="og:image" content="https://images.unsplash.com/photo-1556742049-0cf84f6ecd75?auto=format&fit=crop&w=1200&q=80" />
+        <meta property="og:image" content="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=1200&h=630&q=80" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
         <meta property="og:url" content={window.location.origin} />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="اربح - منصتك للربح من الإنترنت" />
         <meta name="twitter:description" content="تعلم طرق الربح من الإنترنت، العمل الحر، والتجارة الإلكترونية. ابدأ رحلتك نحو الاستقلال المالي اليوم." />
-        <meta name="twitter:image" content="https://images.unsplash.com/photo-1556742049-0cf84f6ecd75?auto=format&fit=crop&w=1200&q=80" />
+        <meta name="twitter:image" content="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=1200&h=630&q=80" />
+        <link rel="canonical" href={window.location.origin} />
       </Helmet>
       <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />

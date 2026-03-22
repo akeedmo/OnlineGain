@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { X, ChevronLeft, Search } from 'lucide-react';
+import { X, ChevronLeft, Search, Share2, Check } from 'lucide-react';
 import ar from '../locales/ar.json';
 import en from '../locales/en.json';
 import tr from '../locales/tr.json';
@@ -10,6 +11,27 @@ const translations = { ar, en, tr };
 export const Sidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const { language, setLanguage } = useLanguage();
   const t = translations[language].nav;
+  const [copied, setCopied] = useState(false);
+
+  const handleShareSite = async () => {
+    const shareData = {
+      title: 'اربح - منصتك للربح من الإنترنت',
+      text: 'اربح هي منصتك الشاملة لتعلم طرق الربح من الإنترنت والعمل الحر. انضم إلينا وابدأ رحلتك نحو الاستقلال المالي!',
+      url: window.location.origin,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (error) {
+        console.log('Error sharing:', error);
+      }
+    } else {
+      navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -78,6 +100,25 @@ export const Sidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
           <option value="en">English</option>
           <option value="tr">Türkçe</option>
         </select>
+      </div>
+
+      {/* Share Button Section */}
+      <div className="p-6 border-t border-gray-100">
+        <div className="bg-indigo-50 rounded-2xl p-5 border border-indigo-100">
+          <h4 className="text-indigo-900 font-bold mb-2 text-right">شارك المنصة</h4>
+          <p className="text-indigo-600 text-xs mb-4 text-right leading-relaxed">
+            ساعد أصدقائك في اكتشاف طرق الربح من الإنترنت والعمل الحر من خلال مشاركة رابط المنصة معهم.
+          </p>
+          <button
+            onClick={handleShareSite}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all ${
+              copied ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+            }`}
+          >
+            {copied ? <Check size={18} /> : <Share2 size={18} />}
+            <span>{copied ? 'تم نسخ الرابط!' : 'مشاركة الآن'}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

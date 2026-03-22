@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, loginWithGoogle } from '../firebase';
 import { Mail, CheckCircle2 } from 'lucide-react';
 
@@ -13,18 +13,19 @@ export const Newsletter = () => {
     setMessage('');
 
     try {
-      // Check if already subscribed
-      const q = query(collection(db, 'subscribers'), where('email', '==', email.toLowerCase()));
-      const snapshot = await getDocs(q);
+      const emailLower = email.toLowerCase();
+      // Use email as document ID for uniqueness and better security rules
+      const subscriberRef = doc(db, 'subscribers', emailLower);
+      const snapshot = await getDoc(subscriberRef);
       
-      if (!snapshot.empty) {
+      if (snapshot.exists()) {
         setStatus('error');
         setMessage('أنت مشترك بالفعل في القائمة البريدية!');
         return;
       }
 
-      await addDoc(collection(db, 'subscribers'), {
-        email: email.toLowerCase(),
+      await setDoc(subscriberRef, {
+        email: emailLower,
         subscribedAt: new Date().toISOString(),
         status: 'active'
       });

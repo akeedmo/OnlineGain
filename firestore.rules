@@ -127,11 +127,15 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /subscribers/{subscriberId} {
-      allow read: if isAdmin();
-      allow create: if isValidSubscriber(request.resource.data);
-      allow update: if isAdmin() && isValidSubscriber(request.resource.data);
-      allow delete: if isAdmin();
+    match /subscribers/{email} {
+      // Allow checking individual subscription status via get
+      allow get: if true;
+      // Only admins can list all subscribers
+      allow list: if isAdmin();
+      // Anyone can create a subscription, but must match document ID
+      allow create: if isValidSubscriber(request.resource.data) && email == request.resource.data.email;
+      // Only admins can update or delete
+      allow update, delete: if isAdmin();
     }
 
     match /unique_visitors/{visitorId} {

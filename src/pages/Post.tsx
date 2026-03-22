@@ -89,15 +89,20 @@ export const Post = () => {
     <div className="flex flex-col min-h-screen bg-white">
       <Helmet>
         <title>{post.title} | اربح</title>
+        <meta name="description" content={post.summary} />
+        <meta property="og:site_name" content="اربح" />
         <meta property="og:title" content={post.title} />
         <meta property="og:description" content={post.summary} />
-        <meta property="og:image" content={post.image || `https://picsum.photos/seed/${post.id}/1200/600`} />
+        <meta property="og:image" content={post.image || `https://picsum.photos/seed/${post.id}/1200/630`} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
         <meta property="og:url" content={window.location.href} />
         <meta property="og:type" content="article" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={post.title} />
         <meta name="twitter:description" content={post.summary} />
-        <meta name="twitter:image" content={post.image || `https://picsum.photos/seed/${post.id}/1200/600`} />
+        <meta name="twitter:image" content={post.image || `https://picsum.photos/seed/${post.id}/1200/630`} />
+        <link rel="canonical" href={window.location.href} />
       </Helmet>
       <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
