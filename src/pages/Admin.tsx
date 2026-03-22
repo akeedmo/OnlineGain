@@ -452,7 +452,7 @@ export function Admin() {
             <LogOut className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">غير مصرح لك</h1>
-          <p className="text-gray-500 mb-6">هذا الحساب ليس لديه صلاحيات المشرف.</p>
+          <p className="text-gray-500 mb-6">هذا الحساب ({user?.email}) ليس لديه صلاحيات المشرف.</p>
           <button
             onClick={logout}
             className="w-full bg-gray-900 text-white py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors"
