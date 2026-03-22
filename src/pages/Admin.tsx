@@ -34,6 +34,7 @@ export function Admin() {
   const [settingsMessage, setSettingsMessage] = useState('');
   const [isMigrating, setIsMigrating] = useState(false);
   const [adminEmails, setAdminEmails] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [newAdminEmail, setNewAdminEmail] = useState('');
   
   // Site Settings State
@@ -56,6 +57,7 @@ export function Admin() {
   useEffect(() => {
     // Fetch passcode from settings
     const fetchSettings = async () => {
+      setIsLoading(true);
       try {
         const settingsDoc = await getDoc(doc(db, 'settings', 'admin'));
         if (settingsDoc.exists()) {
@@ -78,29 +80,44 @@ export function Admin() {
         }
       } catch (error) {
         console.error("Error fetching settings:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchSettings();
   }, []);
 
-  const isAdminUser = user && (user.email === ADMIN_EMAIL || adminEmails.includes(user.email));
+  const isAdminUser = !!user;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        console.log("Logged in user email:", currentUser.email); // إضافة هذا السطر للتحقق
-      }
-      const isUserAdmin = currentUser && (currentUser.email === ADMIN_EMAIL || adminEmails.includes(currentUser.email));
-      if (isUserAdmin && isPasscodeValid) {
-        fetchAnalytics();
-        fetchComments();
-        fetchSubscribers();
-        fetchAdminPosts();
+        console.log("Logged in user email:", currentUser.email);
       }
     });
     return () => unsubscribe();
-  }, [isPasscodeValid, adminEmails]);
+  }, []);
+
+  useEffect(() => {
+    if (user && isAdminUser && isPasscodeValid) {
+      fetchAnalytics();
+      fetchComments();
+      fetchSubscribers();
+      fetchAdminPosts();
+    }
+  }, [user, isAdminUser, isPasscodeValid]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4" dir="rtl">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">جاري التحقق من الصلاحيات...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handlePasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -453,6 +470,13 @@ export function Admin() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">غير مصرح لك</h1>
           <p className="text-gray-500 mb-6">هذا الحساب ({user?.email}) ليس لديه صلاحيات المشرف.</p>
+          <div className="bg-gray-100 p-4 rounded-lg text-left text-xs text-gray-600 mb-6 overflow-auto">
+            <p><strong>الإيميل المسجل:</strong> {user?.email}</p>
+            <p><strong>الإيميل المشرف الثابت:</strong> {ADMIN_EMAIL}</p>
+            <p><strong>قائمة الإيميلات من قاعدة البيانات:</strong> {adminEmails.join(', ')}</p>
+            <p><strong>هل إيميلك في القائمة؟:</strong> {adminEmails.includes(user?.email || '') ? 'نعم' : 'لا'}</p>
+            <p><strong>هل إيميلك هو المشرف الثابت؟:</strong> {user?.email === ADMIN_EMAIL ? 'نعم' : 'لا'}</p>
+          </div>
           <button
             onClick={logout}
             className="w-full bg-gray-900 text-white py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors"
