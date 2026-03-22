@@ -48,14 +48,18 @@ export const Newsletter = () => {
 
   const handleGoogleSubscribe = async () => {
     try {
+      setStatus('loading');
+      setMessage('');
       const user = await loginWithGoogle();
       if (user && user.email) {
         await subscribeUser(user.email);
+      } else {
+        setStatus('idle');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Google subscribe error:", error);
       setStatus('error');
-      setMessage('حدث خطأ أثناء الاشتراك عبر جوجل.');
+      setMessage(error.message || 'حدث خطأ أثناء الاشتراك عبر جوجل.');
     }
   };
 

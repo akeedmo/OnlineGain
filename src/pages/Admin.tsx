@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, query, orderBy, setDoc, doc, updateDoc, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, setDoc, doc, updateDoc, deleteDoc, getDoc, onSnapshot, limit } from 'firebase/firestore';
 import { db, auth, loginWithGoogle, logout } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { BarChart, Activity, Globe, Users, FileText, PlusCircle, LogOut, Key, MessageSquare, Mail, Settings, Database, Search, DollarSign, Bold, Heading2, Link as LinkIcon, List, Eye as EyeIcon } from 'lucide-react';
@@ -26,6 +26,7 @@ export function Admin() {
   // Analytics State
   const [visits, setVisits] = useState<any[]>([]);
   const [stats, setStats] = useState({ totalVisits: 0, daily: 0, weekly: 0, monthly: 0, yearly: 0, topCountries: [], topInterests: [] });
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
 
   // Comments and Subscribers State
   const [comments, setComments] = useState<any[]>([]);
@@ -88,7 +89,7 @@ export function Admin() {
     fetchSettings();
   }, []);
 
-  const isAdminUser = !!user;
+  const isAdminUser = !!user && (user.email === ADMIN_EMAIL || adminEmails.includes(user.email || ''));
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -103,7 +104,8 @@ export function Admin() {
   useEffect(() => {
     if (user && isAdminUser && isPasscodeValid) {
       // Real-time listeners
-      const qVisits = query(collection(db, 'visits'), orderBy('timestamp', 'desc'));
+      setIsStatsLoading(true);
+      const qVisits = query(collection(db, 'visits'), limit(2000));
       const unsubVisits = onSnapshot(qVisits, (snapshot) => {
         const visitsData: any[] = [];
         const countryCount: Record<string, number> = {};
@@ -152,6 +154,13 @@ export function Admin() {
           .slice(0, 5)
           .map(([name, count]) => ({ name, count }));
 
+        // Sort by timestamp desc on client side
+        visitsData.sort((a, b) => {
+          const tsA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
+          const tsB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
+          return tsB - tsA;
+        });
+
         setVisits(visitsData);
         setStats({
           totalVisits: visitsData.length,
@@ -162,24 +171,39 @@ export function Admin() {
           topCountries,
           topInterests
         });
+        setIsStatsLoading(false);
+      }, (error) => {
+        console.error("Error in visits onSnapshot:", error);
+        setSettingsMessage("خطأ في تحميل إحصائيات الزوار: " + error.message);
+        setIsStatsLoading(false);
       });
 
-      const qComments = query(collection(db, 'comments'), orderBy('createdAt', 'desc'));
+      const qComments = query(collection(db, 'comments'), limit(500));
       const unsubComments = onSnapshot(qComments, (snapshot) => {
         const commentsData: any[] = [];
         snapshot.forEach((doc) => {
           commentsData.push({ id: doc.id, ...doc.data() });
         });
+        // Sort by createdAt desc on client side
+        commentsData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setComments(commentsData);
+      }, (error) => {
+        console.error("Error in comments onSnapshot:", error);
+        setSettingsMessage("خطأ في تحميل التعليقات: " + error.message);
       });
 
-      const qSubscribers = query(collection(db, 'subscribers'), orderBy('subscribedAt', 'desc'));
+      const qSubscribers = query(collection(db, 'subscribers'), limit(1000));
       const unsubSubscribers = onSnapshot(qSubscribers, (snapshot) => {
         const subscribersData: any[] = [];
         snapshot.forEach((doc) => {
           subscribersData.push({ id: doc.id, ...doc.data() });
         });
+        // Sort by subscribedAt desc on client side
+        subscribersData.sort((a, b) => new Date(b.subscribedAt).getTime() - new Date(a.subscribedAt).getTime());
         setSubscribers(subscribersData);
+      }, (error) => {
+        console.error("Error in subscribers onSnapshot:", error);
+        setSettingsMessage("خطأ في تحميل المشتركين: " + error.message);
       });
 
       const qPosts = query(collection(db, 'posts'), orderBy('date', 'desc'));
@@ -189,6 +213,9 @@ export function Admin() {
           firestorePosts.push({ id: doc.id, ...doc.data() });
         });
         setAdminPosts(firestorePosts);
+      }, (error) => {
+        console.error("Error in posts onSnapshot:", error);
+        setSettingsMessage("خطأ في تحميل المنشورات: " + error.message);
       });
 
       return () => {
@@ -824,7 +851,13 @@ export function Admin() {
         {activeTab === 'analytics' && (
           <div className="space-y-6">
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+            {isStatsLoading ? (
+              <div className="bg-white p-12 rounded-2xl shadow-sm border border-gray-100 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                <p className="text-gray-500">جاري تحميل الإحصائيات...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
               {[
                 { label: 'إجمالي الزيارات', value: stats.totalVisits },
                 { label: 'زيارات اليوم', value: stats.daily },
@@ -839,6 +872,7 @@ export function Admin() {
                 </div>
               ))}
             </div>
+          )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Top Countries */}
