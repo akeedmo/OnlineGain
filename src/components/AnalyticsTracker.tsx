@@ -13,12 +13,15 @@ export function AnalyticsTracker() {
         let country = 'Unknown';
         let city = 'Unknown';
         try {
-          const response = await fetch('https://ipapi.co/json/');
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const response = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+          clearTimeout(timeoutId);
           const data = await response.json();
           if (data.country_name) country = data.country_name;
           if (data.city) city = data.city;
         } catch (e) {
-          console.error("Could not fetch location data");
+          // Silently fail if location data cannot be fetched
         }
 
         // Extract potential search terms or interests from path
