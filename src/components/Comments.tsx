@@ -24,17 +24,22 @@ export const Comments = ({ postId }: { postId: string }) => {
   useEffect(() => {
     const q = query(
       collection(db, 'comments'),
-      where('postId', '==', postId),
-      where('status', '==', 'approved'),
-      orderBy('createdAt', 'desc')
+      where('postId', '==', postId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedComments: Comment[] = [];
       snapshot.forEach((doc) => {
-        fetchedComments.push({ id: doc.id, ...doc.data() } as Comment);
+        const data = doc.data() as Comment;
+        if (data.status === 'approved') {
+          fetchedComments.push({ id: doc.id, ...data });
+        }
       });
+      // Sort by createdAt desc on client side
+      fetchedComments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setComments(fetchedComments);
+    }, (error) => {
+      console.error("Error in onSnapshot:", error);
     });
 
     return () => unsubscribe();

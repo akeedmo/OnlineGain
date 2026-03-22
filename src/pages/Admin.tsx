@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, query, orderBy, setDoc, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db, auth, loginWithGoogle, logout } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { BarChart, Activity, Globe, Users, FileText, PlusCircle, LogOut, Key, MessageSquare, Mail, Settings, Database, Search, DollarSign } from 'lucide-react';
-import { posts as staticPosts } from '../data/posts';
+import { BarChart, Activity, Globe, Users, FileText, PlusCircle, LogOut, Key, MessageSquare, Mail, Settings, Database, Search, DollarSign, Bold, Heading2, Link as LinkIcon, List, Eye as EyeIcon } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 export function Admin() {
   const [user, setUser] = useState<any>(null);
@@ -13,6 +13,7 @@ export function Admin() {
   
   // Post Form State
   const [title, setTitle] = useState('');
+  const [slug, setSlug] = useState('');
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('freelancing');
@@ -20,10 +21,11 @@ export function Admin() {
   const [keywords, setKeywords] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Analytics State
   const [visits, setVisits] = useState<any[]>([]);
-  const [stats, setStats] = useState({ totalVisits: 0, topCountries: [], topInterests: [] });
+  const [stats, setStats] = useState({ totalVisits: 0, daily: 0, weekly: 0, monthly: 0, yearly: 0, topCountries: [], topInterests: [] });
 
   // Comments and Subscribers State
   const [comments, setComments] = useState<any[]>([]);
@@ -32,7 +34,6 @@ export function Admin() {
   // Settings State
   const [newPasscode, setNewPasscode] = useState('');
   const [settingsMessage, setSettingsMessage] = useState('');
-  const [isMigrating, setIsMigrating] = useState(false);
   const [adminEmails, setAdminEmails] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newAdminEmail, setNewAdminEmail] = useState('');
@@ -130,7 +131,7 @@ export function Admin() {
         fetchAdminPosts();
       }
     } else {
-      alert('الرمز غير صحيح');
+      setLoginError('الرمز غير صحيح');
     }
   };
 
@@ -138,11 +139,12 @@ export function Admin() {
     try {
       const q = query(collection(db, 'posts'), orderBy('date', 'desc'));
       const querySnapshot = await getDocs(q);
-      const postsData: any[] = [];
+      const firestorePosts: any[] = [];
       querySnapshot.forEach((doc) => {
-        postsData.push({ id: doc.id, ...doc.data() });
+        firestorePosts.push({ id: doc.id, ...doc.data() });
       });
-      setAdminPosts(postsData);
+
+      setAdminPosts(firestorePosts);
     } catch (error) {
       console.error("Error fetching admin posts:", error);
     }
@@ -182,40 +184,37 @@ export function Admin() {
       fetchComments();
     } catch (error) {
       console.error("Error updating comment:", error);
-      alert("حدث خطأ أثناء تحديث حالة التعليق");
+      setSettingsMessage("حدث خطأ أثناء تحديث حالة التعليق");
     }
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!window.confirm("هل أنت متأكد من حذف هذا التعليق؟")) return;
     try {
       await deleteDoc(doc(db, 'comments', commentId));
       fetchComments();
     } catch (error) {
       console.error("Error deleting comment:", error);
-      alert("حدث خطأ أثناء حذف التعليق");
+      setSettingsMessage("حدث خطأ أثناء حذف التعليق");
     }
   };
 
   const handleDeleteSubscriber = async (subscriberId: string) => {
-    if (!window.confirm("هل أنت متأكد من حذف هذا المشترك؟")) return;
     try {
       await deleteDoc(doc(db, 'subscribers', subscriberId));
       fetchSubscribers();
     } catch (error) {
       console.error("Error deleting subscriber:", error);
-      alert("حدث خطأ أثناء حذف المشترك");
+      setSettingsMessage("حدث خطأ أثناء حذف المشترك");
     }
   };
 
   const handleDeleteAdminPost = async (postId: string) => {
-    if (!window.confirm("هل أنت متأكد من حذف هذا المنشور؟")) return;
     try {
       await deleteDoc(doc(db, 'posts', postId));
       fetchAdminPosts();
     } catch (error) {
       console.error("Error deleting post:", error);
-      alert("حدث خطأ أثناء حذف المنشور");
+      setSettingsMessage("حدث خطأ أثناء حذف المنشور");
     }
   };
 
@@ -259,7 +258,6 @@ export function Admin() {
   };
 
   const handleRemoveAdminEmail = async (emailToRemove: string) => {
-    if (!window.confirm(`هل أنت متأكد من إزالة ${emailToRemove} من قائمة المشرفين؟`)) return;
     try {
       const updatedEmails = adminEmails.filter(email => email !== emailToRemove);
       await setDoc(doc(db, 'settings', 'admin'), { adminEmails: updatedEmails }, { merge: true });
@@ -290,35 +288,6 @@ export function Admin() {
     }
   };
 
-  const handleMigratePosts = async () => {
-    if (!window.confirm("هل أنت متأكد من رغبتك في نقل جميع المقالات القديمة إلى قاعدة البيانات؟ لن يتم تكرار المقالات الموجودة مسبقاً.")) return;
-    
-    setIsMigrating(true);
-    setSettingsMessage('جاري نقل المقالات...');
-    
-    try {
-      let count = 0;
-      for (const post of staticPosts) {
-        const postRef = doc(db, 'posts', post.id);
-        const postSnap = await getDoc(postRef);
-        
-        if (!postSnap.exists()) {
-          await setDoc(postRef, {
-            ...post,
-            views: post.views || 0
-          });
-          count++;
-        }
-      }
-      setSettingsMessage(`تم الانتهاء! تمت إضافة ${count} مقال جديد إلى قاعدة البيانات.`);
-    } catch (error) {
-      console.error("Error migrating posts:", error);
-      setSettingsMessage('حدث خطأ أثناء نقل المقالات.');
-    } finally {
-      setIsMigrating(false);
-    }
-  };
-
   const fetchAnalytics = async () => {
     try {
       const q = query(collection(db, 'visits'), orderBy('timestamp', 'desc'));
@@ -326,10 +295,24 @@ export function Admin() {
       const visitsData: any[] = [];
       const countryCount: Record<string, number> = {};
       const interestCount: Record<string, number> = {};
+      
+      const now = new Date();
+      const daily = new Date(now); daily.setHours(0, 0, 0, 0);
+      const weekly = new Date(now); weekly.setDate(now.getDate() - 7);
+      const monthly = new Date(now); monthly.setMonth(now.getMonth() - 1);
+      const yearly = new Date(now); yearly.setFullYear(now.getFullYear() - 1);
+
+      let dVisits = 0, wVisits = 0, mVisits = 0, yVisits = 0;
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         visitsData.push(data);
+        const ts = new Date(data.timestamp);
+
+        if (ts >= daily) dVisits++;
+        if (ts >= weekly) wVisits++;
+        if (ts >= monthly) mVisits++;
+        if (ts >= yearly) yVisits++;
         
         if (data.country) {
           countryCount[data.country] = (countryCount[data.country] || 0) + 1;
@@ -355,6 +338,10 @@ export function Admin() {
       setVisits(visitsData);
       setStats({
         totalVisits: visitsData.length,
+        daily: dVisits,
+        weekly: wVisits,
+        monthly: mVisits,
+        yearly: yVisits,
         topCountries,
         topInterests
       });
@@ -363,13 +350,43 @@ export function Admin() {
     }
   };
 
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    // Generate slug from title: lowercase, replace spaces/special chars with hyphens, remove duplicate hyphens
+    const generatedSlug = newTitle
+      .toLowerCase()
+      .replace(/[^a-z0-9\u0600-\u06FF]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+    setSlug(generatedSlug);
+  };
+
+  const insertMarkdown = (before: string, after: string) => {
+    const textarea = document.getElementById('post-content') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end);
+    const newText = text.substring(0, start) + before + selectedText + after + text.substring(end);
+    
+    setContent(newText);
+    
+    // Focus back and set cursor position
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, end + before.length);
+    }, 0);
+  };
+
   const handleAddPost = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setMessage('');
 
     try {
-      const newPostId = title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]+/g, '-').replace(/(^-|-$)+/g, '');
+      const newPostId = slug || title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]+/g, '-').replace(/(^-|-$)+/g, '');
       const newPost = {
         id: newPostId,
         title,
@@ -386,6 +403,7 @@ export function Admin() {
       await setDoc(doc(db, 'posts', newPostId), newPost);
       setMessage('تم إضافة المنشور بنجاح!');
       setTitle('');
+      setSlug('');
       setSummary('');
       setContent('');
       setImage('');
@@ -594,7 +612,7 @@ export function Admin() {
         {activeTab === 'add-post' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-              <FileText className="w-6 h-6 text-indigo-600" />
+              <PlusCircle className="w-6 h-6 text-indigo-600" />
               نشر مقال جديد
             </h2>
             
@@ -607,16 +625,31 @@ export function Admin() {
             <form onSubmit={handleAddPost} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">عنوان المنشور</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">عنوان المقال</label>
                   <input
                     type="text"
                     required
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={handleTitleChange}
                     className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="مثال: كيف تبدأ في العمل الحر..."
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">رابط المقال (Slug)</label>
+                  <input
+                    type="text"
+                    required
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value)}
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                    placeholder="how-to-start-freelancing"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">القسم (الصفحة)</label>
                   <select
@@ -631,68 +664,138 @@ export function Admin() {
                     <option value="tools">أدوات الذكاء الاصطناعي</option>
                   </select>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">ملخص قصير</label>
-                <textarea
-                  required
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-24"
-                  placeholder="ملخص يظهر في بطاقة المنشور..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">المحتوى (يدعم Markdown)</label>
-                <textarea
-                  required
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-64 font-mono text-sm"
-                  placeholder="اكتب محتوى المقال هنا..."
-                  dir="auto"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">رابط الصورة (اختياري)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">رابط الصورة</label>
                   <input
                     type="url"
                     value={image}
                     onChange={(e) => setImage(e.target.value)}
                     className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="https://..."
+                    placeholder="https://images.unsplash.com/..."
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">كلمات مفتاحية (مفصولة بفاصلة)</label>
-                  <input
-                    type="text"
-                    value={keywords}
-                    onChange={(e) => setKeywords(e.target.value)}
-                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="عمل حر, تسويق, ربح..."
-                  />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">ملخص قصير (يظهر في البطاقة)</label>
+                <textarea
+                  required
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-20"
+                  placeholder="اكتب ملخصاً جذاباً للمقال..."
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">المحتوى (يدعم Markdown)</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('## ', '')}
+                      className="p-1.5 hover:bg-gray-100 rounded text-gray-600"
+                      title="عنوان فرعي"
+                    >
+                      <Heading2 size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('**', '**')}
+                      className="p-1.5 hover:bg-gray-100 rounded text-gray-600"
+                      title="خط عريض"
+                    >
+                      <Bold size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('[', '](url)')}
+                      className="p-1.5 hover:bg-gray-100 rounded text-gray-600"
+                      title="رابط خارجي"
+                    >
+                      <LinkIcon size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => insertMarkdown('- ', '')}
+                      className="p-1.5 hover:bg-gray-100 rounded text-gray-600"
+                      title="قائمة"
+                    >
+                      <List size={18} />
+                    </button>
+                    <div className="w-px h-4 bg-gray-200 mx-1"></div>
+                    <button
+                      type="button"
+                      onClick={() => setIsPreviewOpen(!isPreviewOpen)}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                        isPreviewOpen ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <EyeIcon size={14} />
+                      {isPreviewOpen ? 'إغلاق المعاينة' : 'معاينة المحتوى'}
+                    </button>
+                  </div>
                 </div>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  {!isPreviewOpen ? (
+                    <textarea
+                      id="post-content"
+                      required
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      className="w-full px-4 py-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-96 font-mono text-sm leading-relaxed"
+                      placeholder="ابدأ بكتابة مقالك هنا... يمكنك استخدام Markdown للتنسيق."
+                      dir="auto"
+                    />
+                  ) : (
+                    <div className="w-full p-6 rounded-xl border border-gray-200 bg-gray-50 h-96 overflow-y-auto prose prose-indigo max-w-none">
+                      <ReactMarkdown>{content || '*لا يوجد محتوى للمعاينة حالياً*'}</ReactMarkdown>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">كلمات مفتاحية (SEO)</label>
+                <input
+                  type="text"
+                  value={keywords}
+                  onChange={(e) => setKeywords(e.target.value)}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="مثال: عمل حر, ربح من الانترنت, تسويق..."
+                />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+                className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-70 flex items-center justify-center gap-2 text-lg"
               >
-                {isSubmitting ? 'جاري النشر...' : 'نشر المقال الآن'}
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    جاري النشر...
+                  </>
+                ) : (
+                  <>
+                    <PlusCircle className="w-6 h-6" />
+                    نشر المقال الآن
+                  </>
+                )}
               </button>
             </form>
 
             {/* Admin Posts List */}
             <div className="mt-16 border-t border-gray-100 pt-12">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <FileText className="w-6 h-6 text-indigo-600" />
-                المنشورات السابقة
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-6 h-6 text-indigo-600" />
+                  المنشورات السابقة
+                </div>
+                <span className="text-sm font-medium bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full">
+                  إجمالي المنشورات: {adminPosts.length}
+                </span>
               </h2>
               
               <div className="overflow-x-auto">
@@ -741,16 +844,20 @@ export function Admin() {
         {activeTab === 'analytics' && (
           <div className="space-y-6">
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">
-                  <Users className="w-6 h-6" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+              {[
+                { label: 'إجمالي الزيارات', value: stats.totalVisits },
+                { label: 'زيارات اليوم', value: stats.daily },
+                { label: 'زيارات الأسبوع', value: stats.weekly },
+                { label: 'زيارات الشهر', value: stats.monthly },
+                { label: 'زيارات السنة', value: stats.yearly },
+                { label: 'المشتركون', value: subscribers.length },
+              ].map((stat, idx) => (
+                <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                  <p className="text-sm text-gray-500 font-medium mb-1">{stat.label}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">إجمالي الزيارات</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalVisits}</p>
-                </div>
-              </div>
+              ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1143,23 +1250,18 @@ export function Admin() {
                 </form>
               </div>
 
-              {/* Migrate Posts */}
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 md:col-span-2">
+              {/* Post Statistics */}
+              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Database className="w-5 h-5 text-indigo-600" />
-                  نقل المقالات القديمة
+                  <FileText className="w-5 h-5 text-indigo-600" />
+                  إحصائيات المقالات
                 </h3>
-                <p className="text-sm text-gray-600 mb-6">
-                  استخدم هذا الزر لنقل جميع المقالات الثابتة (الموجودة في الكود) إلى قاعدة بيانات Firebase. لن يتم تكرار المقالات الموجودة مسبقاً.
-                </p>
-                <button
-                  onClick={handleMigratePosts}
-                  disabled={isMigrating}
-                  className="w-full bg-gray-900 text-white py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
-                >
-                  <Database className="w-5 h-5" />
-                  {isMigrating ? 'جاري النقل...' : 'نقل المقالات إلى قاعدة البيانات'}
-                </button>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-100">
+                    <span className="text-gray-600">إجمالي المقالات في قاعدة البيانات</span>
+                    <span className="text-xl font-bold text-indigo-600">{adminPosts.length}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

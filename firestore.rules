@@ -93,9 +93,15 @@ service cloud.firestore {
     match /posts/{postId} {
       // Anyone can read posts
       allow read: if true;
-      // Only admins can create/update/delete posts
+      
+      // Allow anyone to increment views OR admin to update
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) &&
+                        request.resource.data.views is number &&
+                        request.resource.data.views == (resource.data.views is number ? resource.data.views : 0) + 1) ||
+                       (isAdmin() && isValidPost(request.resource.data));
+                       
+      // Admin operations
       allow create: if isAdmin() && isValidPost(request.resource.data);
-      allow update: if isAdmin() && isValidPost(request.resource.data);
       allow delete: if isAdmin();
     }
 
@@ -126,6 +132,13 @@ service cloud.firestore {
       allow create: if isValidSubscriber(request.resource.data);
       allow update: if isAdmin() && isValidSubscriber(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    match /unique_visitors/{visitorId} {
+      allow create: if request.resource.data.keys().hasAll(['visitorId', 'timestamp']) &&
+                       request.resource.data.visitorId is string &&
+                       request.resource.data.timestamp is string;
+      allow read, update, delete: if isAdmin();
     }
 
     match /settings/{settingId} {

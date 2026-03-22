@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
-import { posts as staticPosts } from '../data/posts';
 
 export function usePosts() {
-  const [posts, setPosts] = useState<any[]>(staticPosts);
+  const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,20 +15,7 @@ export function usePosts() {
         firestorePosts.push({ ...doc.data(), id: doc.id });
       });
       
-      // Merge firestore posts with static posts, avoiding duplicates by ID
-      const mergedPosts = [...firestorePosts];
-      const firestoreIds = new Set(firestorePosts.map(p => p.id));
-      
-      staticPosts.forEach(sp => {
-        if (!firestoreIds.has(sp.id)) {
-          mergedPosts.push(sp);
-        }
-      });
-      
-      // Sort by date descending
-      mergedPosts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      
-      setPosts(mergedPosts);
+      setPosts(firestorePosts);
       setLoading(false);
     }, (error) => {
       console.error("Error fetching posts:", error);

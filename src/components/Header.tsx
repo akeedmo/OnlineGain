@@ -40,6 +40,9 @@ export const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
       </nav>
 
       <div className="flex items-center gap-2 sm:gap-4">
+        <Link to="/search" className="p-2 text-gray-700 hover:text-indigo-600 transition-colors">
+          <Search size={20} />
+        </Link>
         <div className="relative group">
           <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-500"></div>
           <div className="relative bg-white border border-indigo-100 px-4 py-2 rounded-xl flex items-center gap-2">

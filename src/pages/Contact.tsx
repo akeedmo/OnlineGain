@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Header } from '../components/Header';
 import { Sidebar } from '../components/Sidebar';
 import { Footer } from '../components/Footer';
@@ -19,6 +20,12 @@ export const Contact = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
+      <Helmet>
+        <title>اتصل بنا | اربح</title>
+        <meta name="description" content="نحن هنا لمساعدتك في رحلتك للربح من الإنترنت. تواصل معنا لأي استفسار أو اقتراح." />
+        <meta property="og:title" content="اتصل بنا - منصة اربح" />
+        <meta property="og:description" content="تواصل مع فريق منصة اربح للحصول على الدعم والمساعدة." />
+      </Helmet>
       <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       

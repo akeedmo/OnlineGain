@@ -8,6 +8,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { LanguageProvider } from './context/LanguageContext';
 import { Home } from './pages/Home';
 import { Post } from './pages/Post';
+import { Search } from './pages/Search';
 import { Freelancing } from './pages/Freelancing';
 import { DigitalMarketing } from './pages/DigitalMarketing';
 import { Ecommerce } from './pages/Ecommerce';
@@ -34,6 +35,7 @@ export default function App() {
             <ScrollToTop />
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/search" element={<Search />} />
               <Route path="/post/:id" element={<Post />} />
               <Route path="/freelancing" element={<Freelancing />} />
               <Route path="/digital-marketing" element={<DigitalMarketing />} />

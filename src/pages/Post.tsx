@@ -1,39 +1,24 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, increment, addDoc, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { usePosts } from '../hooks/usePosts';
-import { Info, ChevronDown, Share2, Eye } from 'lucide-react';
+import { Info, ChevronDown, Share2, Eye, ArrowRight } from 'lucide-react';
 import { Comments } from '../components/Comments';
 
 import ReactMarkdown from 'react-markdown';
 
 export const Post = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { posts, loading } = usePosts();
   const post = posts.find(p => p.id === id);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  useEffect(() => {
-    if (id) {
-      const incrementViews = async () => {
-        try {
-          const postRef = doc(db, 'posts', id);
-          await updateDoc(postRef, {
-            views: increment(1)
-          });
-        } catch (error) {
-          console.error("Error incrementing views:", error);
-        }
-      };
-      incrementViews();
-    }
-  }, [id]);
 
   useEffect(() => {
     // Unique visitor tracking
@@ -56,6 +41,8 @@ export const Post = () => {
     }
   }, []);
 
+  const [copied, setCopied] = useState(false);
+
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -70,7 +57,8 @@ export const Post = () => {
     } else {
       // Fallback: Copy to clipboard
       navigator.clipboard.writeText(window.location.href);
-      alert('تم نسخ الرابط!');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -115,6 +103,15 @@ export const Post = () => {
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8">
+        {/* Back Button */}
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-gray-500 hover:text-indigo-600 mb-6 transition-colors font-medium"
+        >
+          <ArrowRight size={20} />
+          <span>الرجوع للخلف</span>
+        </button>
+
         {/* Breadcrumbs */}
         <Breadcrumbs 
           items={[
@@ -190,10 +187,12 @@ export const Post = () => {
             <h3 className="text-xl font-bold text-gray-900 mb-4">هل أعجبك المقال؟ شاركه مع أصدقائك</h3>
             <button 
               onClick={handleShare}
-              className="flex items-center gap-3 bg-indigo-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95"
+              className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95 ${
+                copied ? 'bg-green-600 text-white shadow-green-200' : 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700'
+              }`}
             >
               <Share2 size={20} />
-              <span>مشاركة المقال الآن</span>
+              <span>{copied ? 'تم نسخ الرابط!' : 'مشاركة المقال الآن'}</span>
             </button>
           </div>
         </div>
@@ -210,9 +209,8 @@ export const Post = () => {
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {posts
-              .filter(p => p.id !== post.id)
-              .sort(() => Math.random() - 0.5)
-              .slice(0, 10)
+              .filter(p => p.id !== post.id && p.category === post.category)
+              .slice(0, 4)
               .map(suggestedPost => (
                 <Link 
                   to={`/post/${suggestedPost.id}`} 

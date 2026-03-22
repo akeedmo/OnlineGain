@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, loginWithGoogle } from '../firebase';
 import { Mail, CheckCircle2 } from 'lucide-react';
 
 export const Newsletter = () => {
@@ -8,10 +8,7 @@ export const Newsletter = () => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
 
-  const handleSubscribe = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !email.includes('@')) return;
-
+  const subscribeUser = async (email: string) => {
     setStatus('loading');
     setMessage('');
 
@@ -42,6 +39,25 @@ export const Newsletter = () => {
     }
   };
 
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !email.includes('@')) return;
+    await subscribeUser(email);
+  };
+
+  const handleGoogleSubscribe = async () => {
+    try {
+      const user = await loginWithGoogle();
+      if (user && user.email) {
+        await subscribeUser(user.email);
+      }
+    } catch (error) {
+      console.error("Google subscribe error:", error);
+      setStatus('error');
+      setMessage('حدث خطأ أثناء الاشتراك عبر جوجل.');
+    }
+  };
+
   return (
     <div className="bg-indigo-600 rounded-3xl p-8 md:p-12 text-white relative overflow-hidden my-16">
       <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mr-20 -mt-20"></div>
@@ -65,32 +81,50 @@ export const Newsletter = () => {
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubscribe} className="flex flex-col gap-3">
-              <div className="relative">
-                <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-indigo-300" />
+            <div className="flex flex-col gap-3">
+              <form onSubmit={handleSubscribe} className="flex flex-col gap-3">
+                <div className="relative">
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-indigo-300" />
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="أدخل بريدك الإلكتروني"
+                    className="w-full bg-white/10 border border-white/20 text-white placeholder-indigo-200 rounded-xl py-4 pr-12 pl-4 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all"
+                    dir="rtl"
+                  />
                 </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  placeholder="أدخل بريدك الإلكتروني"
-                  className="w-full bg-white/10 border border-white/20 text-white placeholder-indigo-200 rounded-xl py-4 pr-12 pl-4 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all"
-                  dir="rtl"
-                />
+                <button
+                  type="submit"
+                  disabled={status === 'loading'}
+                  className="w-full bg-white text-indigo-600 font-bold py-4 rounded-xl hover:bg-indigo-50 transition-colors disabled:opacity-70 shadow-lg"
+                >
+                  {status === 'loading' ? 'جاري الاشتراك...' : 'اشترك الآن'}
+                </button>
+              </form>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/20"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-indigo-600 text-indigo-200">أو</span>
+                </div>
               </div>
               <button
-                type="submit"
+                onClick={handleGoogleSubscribe}
                 disabled={status === 'loading'}
-                className="w-full bg-white text-indigo-600 font-bold py-4 rounded-xl hover:bg-indigo-50 transition-colors disabled:opacity-70 shadow-lg"
+                className="w-full bg-white/10 border border-white/20 text-white font-bold py-4 rounded-xl hover:bg-white/20 transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                {status === 'loading' ? 'جاري الاشتراك...' : 'اشترك الآن'}
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                اشترك باستخدام Google
               </button>
               {status === 'error' && (
                 <p className="text-red-200 text-sm mt-2 text-center">{message}</p>
               )}
-            </form>
+            </div>
           )}
         </div>
       </div>

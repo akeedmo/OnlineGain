@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
@@ -10,6 +11,12 @@ export const DigitalMarketing = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <Helmet>
+        <title>التسويق الرقمي | اربح</title>
+        <meta name="description" content="تعلم أحدث استراتيجيات التسويق عبر الإنترنت لزيادة مبيعاتك وانتشارك." />
+        <meta property="og:title" content="التسويق الرقمي - منصة اربح" />
+        <meta property="og:description" content="دليلك لاحتراف التسويق الرقمي والربح من الإنترنت." />
+      </Helmet>
       <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12">

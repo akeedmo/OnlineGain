@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
@@ -10,6 +11,12 @@ export const Ecommerce = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <Helmet>
+        <title>التجارة الإلكترونية | اربح</title>
+        <meta name="description" content="كل ما تحتاجه لإنشاء وإدارة متجر إلكتروني ناجح ومربح." />
+        <meta property="og:title" content="التجارة الإلكترونية - منصة اربح" />
+        <meta property="og:description" content="دليلك الشامل للنجاح في التجارة الإلكترونية والدروبشيبينغ." />
+      </Helmet>
       <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12">
