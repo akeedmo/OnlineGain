@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { doc, updateDoc, increment } from 'firebase/firestore';
+import { db } from '../firebase';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
@@ -16,6 +18,43 @@ export const Post = () => {
   const { posts, loading } = usePosts();
   const post = posts.find(p => p.id === id);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (id) {
+      const incrementViews = async () => {
+        try {
+          const postRef = doc(db, 'posts', id);
+          await updateDoc(postRef, {
+            views: increment(1)
+          });
+        } catch (error) {
+          console.error("Error incrementing views:", error);
+        }
+      };
+      incrementViews();
+    }
+  }, [id]);
+
+  useEffect(() => {
+    // Unique visitor tracking
+    let visitorId = localStorage.getItem('visitorId');
+    if (!visitorId) {
+      visitorId = crypto.randomUUID();
+      localStorage.setItem('visitorId', visitorId);
+      // Track new unique visitor
+      const trackUniqueVisitor = async () => {
+        try {
+          await addDoc(collection(db, 'unique_visitors'), {
+            visitorId,
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error("Error tracking unique visitor:", error);
+        }
+      };
+      trackUniqueVisitor();
+    }
+  }, []);
 
   const handleShare = async () => {
     if (navigator.share) {
